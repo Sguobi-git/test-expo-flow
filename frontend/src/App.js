@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowRight, Sparkles, Building2, Package, CheckCircle, Shield } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ArrowRight, Sparkles, Building2, Package, CheckCircle, Shield, Lock, Truck, CheckCircle2, Clock, AlertCircle, MapPin, Star, Zap, Bell, RefreshCw, Award, Search, X } from 'lucide-react';
 
 function App() {
   const [stage, setStage] = useState('intro');
@@ -9,6 +9,8 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [introProgress, setIntroProgress] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [abacusStatus, setAbacusStatus] = useState(null);
 
   useEffect(() => {
     if (stage === 'intro') {
@@ -38,12 +40,13 @@ function App() {
     }
   }, [stage]);
 
+  // EXACT order statuses from the second file (previous app)
   const orderStatuses = {
     'delivered': { 
       label: 'Delivered', 
       progress: 100, 
       color: 'from-green-500 to-emerald-500',
-      icon: CheckCircle,
+      icon: CheckCircle2,
       bgColor: 'bg-green-500/20 text-green-400',
       priority: 5
     },
@@ -51,7 +54,7 @@ function App() {
       label: 'Out for Delivery', 
       progress: 75, 
       color: 'from-blue-500 to-cyan-500',
-      icon: Package,
+      icon: Truck,
       bgColor: 'bg-blue-500/20 text-blue-400',
       priority: 3
     },
@@ -59,7 +62,7 @@ function App() {
       label: 'In Route from Warehouse', 
       progress: 50, 
       color: 'from-yellow-500 to-orange-500',
-      icon: Building2,
+      icon: MapPin,
       bgColor: 'bg-yellow-500/20 text-yellow-400',
       priority: 2
     },
@@ -67,7 +70,7 @@ function App() {
       label: 'In Process', 
       progress: 25, 
       color: 'from-purple-500 to-pink-500',
-      icon: Shield,
+      icon: Clock,
       bgColor: 'bg-purple-500/20 text-purple-400',
       priority: 1
     },
@@ -75,27 +78,38 @@ function App() {
       label: 'Cancelled', 
       progress: 0, 
       color: 'from-red-500 to-red-600',
-      icon: ArrowRight,
+      icon: AlertCircle,
       bgColor: 'bg-red-500/20 text-red-400',
       priority: 4
     }
   };
 
-  const API_BASE = 'https://v3-exhibitor-live-update.onrender.com/api';
+  const sortOrdersByStatus = (ordersArray) => {
+    return ordersArray.sort((a, b) => {
+      const aPriority = orderStatuses[a.status]?.priority || 99;
+      const bPriority = orderStatuses[b.status]?.priority || 99;
+      return aPriority - bPriority;
+    });
+  };
 
-  const fetchOrdersByBooth = async (boothNum) => {
+  const API_BASE = 'https://test-expo-flow.onrender.com/api';
+
+  const fetchOrdersByBooth = async (boothNum, forceRefresh = false) => {
     setLoading(true);
     try {
       console.log('Fetching orders for booth:', boothNum);
       
-      const response = await fetch(`${API_BASE}/orders/booth/${encodeURIComponent(boothNum)}`);
+      const url = `${API_BASE}/orders/booth/${encodeURIComponent(boothNum)}${forceRefresh ? '?force_refresh=true' : ''}`;
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch orders');
       
       const data = await response.json();
       console.log('Orders Response:', data);
       
-      setOrders(data.orders || []);
-      generateNotifications(data.orders || []);
+      const sortedOrders = sortOrdersByStatus(data.orders || []);
+      setOrders(sortedOrders);
+      setLastUpdated(new Date(data.last_updated));
+      generateNotifications(sortedOrders);
       
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -111,7 +125,8 @@ function App() {
           status: 'delivered',
           order_date: new Date().toLocaleDateString(),
           comments: 'Coordinated by Expo Convention Contractors',
-          section: 'Section A'
+          section: 'Section A',
+          expo_processed: true
         },
         {
           id: `ORD-${boothNum}-002`,
@@ -123,18 +138,21 @@ function App() {
           status: 'out-for-delivery',
           order_date: new Date().toLocaleDateString(),
           comments: 'High-quality event furniture',
-          section: 'Section A'
+          section: 'Section A',
+          expo_processed: true
         }
       ];
       
-      setOrders(fallbackOrders);
-      generateNotifications(fallbackOrders);
+      const sortedFallbackOrders = sortOrdersByStatus(fallbackOrders);
+      setOrders(sortedFallbackOrders);
+      setLastUpdated(new Date());
+      generateNotifications(sortedFallbackOrders);
     } finally {
       setLoading(false);
     }
   };
 
-  const generateNotifications = (ordersData) => {
+  const generateNotifications = useCallback((ordersData) => {
     const notifications = [];
     ordersData.forEach((order) => {
       if (order.status === 'in-route') {
@@ -151,11 +169,19 @@ function App() {
           time: `${Math.floor(Math.random() * 120) + 1} min ago`,
           type: 'success'
         });
+      } else if (order.status === 'out-for-delivery') {
+        notifications.push({
+          id: Math.random(),
+          message: `${order.item} is out for delivery`,
+          time: `${Math.floor(Math.random() * 15) + 1} min ago`,
+          type: 'delivery'
+        });
       }
     });
     setNotifications(notifications.slice(0, 3));
-  };
+  }, []);
 
+  // EXACT renderProgressBar from the second file
   const renderProgressBar = (status) => {
     const statusInfo = orderStatuses[status] || orderStatuses['in-process'];
     return (
@@ -166,11 +192,21 @@ function App() {
         </div>
         <div className="relative w-full bg-gray-200 rounded-full h-3">
           <div 
-            className={`bg-gradient-to-r ${statusInfo.color} h-3 rounded-full transition-all duration-1000`}
+            className={`bg-gradient-to-r ${statusInfo.color} h-3 rounded-full transition-all duration-1000 relative overflow-hidden`}
             style={{ width: `${statusInfo.progress}%` }}
           >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent w-20 animate-sweep"></div>
           </div>
         </div>
+        <style jsx>{`
+          @keyframes sweep {
+            0% { transform: translateX(-100px); }
+            100% { transform: translateX(calc(100vw)); }
+          }
+          .animate-sweep {
+            animation: sweep 2s ease-in-out infinite;
+          }
+        `}</style>
       </div>
     );
   };
@@ -202,6 +238,13 @@ function App() {
   const handleOrdersClick = () => {
     setStage('orders');
     fetchOrdersByBooth(boothNumber);
+  };
+
+  // EXACT handleRefresh from the second file
+  const handleRefresh = () => {
+    if (boothNumber && !loading) {
+      fetchOrdersByBooth(boothNumber, true);
+    }
   };
 
   if (stage === 'intro') {
@@ -391,6 +434,7 @@ function App() {
     );
   }
 
+  // EXACT ORDERS LAYOUT FROM THE SECOND FILE (PREVIOUS APP)
   if (stage === 'orders') {
     const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
     const pendingOrders = orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled').length;
@@ -398,10 +442,10 @@ function App() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white p-6">
         <div className="max-w-7xl mx-auto">
-          
+          {/* Header - Mobile Responsive - EXACT from second file */}
           <div className="bg-white/90 backdrop-blur-lg rounded-3xl p-4 md:p-6 border border-gray-200 shadow-xl mb-8">
             <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
-              
+              {/* Left side - Company info */}
               <div className="flex items-center space-x-3 md:space-x-6">
                 <div className="flex items-center space-x-3 md:space-x-4">
                   <ExpoLogo size="small" />
@@ -416,14 +460,29 @@ function App() {
                   </p>
                   <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 md:mt-2">
                     <span className="text-xs md:text-sm text-teal-600 flex items-center space-x-1">
-                      <Shield className="w-3 h-3 md:w-4 md:h-4" />
+                      <Award className="w-3 h-3 md:w-4 md:h-4" />
                       <span>Expo Convention Contractors</span>
                     </span>
+                    <span className="text-xs md:text-sm text-gray-500">Live Order Tracking</span>
                   </div>
                 </div>
               </div>
               
+              {/* Right side - Action buttons - EXACT from second file */}
               <div className="flex items-center justify-end space-x-2 md:space-x-4 flex-shrink-0">
+                <button 
+                  onClick={handleRefresh}
+                  disabled={loading}
+                  className="p-2 md:p-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl md:rounded-2xl transition-all duration-300 border border-gray-200 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 md:w-5 md:h-5 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+                <div className="relative">
+                  <Bell className="w-5 h-5 md:w-6 md:h-6 text-gray-600 cursor-pointer hover:text-teal-600 transition-colors" />
+                  {notifications.length > 0 && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-teal-500 rounded-full animate-pulse"></div>
+                  )}
+                </div>
                 <button 
                   onClick={() => setStage('options')}
                   className="px-3 py-2 md:px-6 md:py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl md:rounded-2xl transition-all duration-300 border border-gray-200 text-sm md:text-base"
@@ -434,6 +493,7 @@ function App() {
             </div>
           </div>
 
+          {/* Stats Overview - EXACT from second file */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white/90 backdrop-blur-lg rounded-2xl p-6 border border-gray-200 shadow-lg">
               <div className="flex items-center space-x-3 mb-4">
@@ -445,7 +505,7 @@ function App() {
             </div>
             <div className="bg-white/90 backdrop-blur-lg rounded-2xl p-6 border border-gray-200 shadow-lg">
               <div className="flex items-center space-x-3 mb-4">
-                <CheckCircle className="w-8 h-8 text-green-500" />
+                <CheckCircle2 className="w-8 h-8 text-green-500" />
                 <h3 className="text-lg font-semibold text-gray-900">Delivered</h3>
               </div>
               <div className="text-3xl font-bold text-green-500">{deliveredOrders}</div>
@@ -453,25 +513,48 @@ function App() {
             </div>
             <div className="bg-white/90 backdrop-blur-lg rounded-2xl p-6 border border-gray-200 shadow-lg">
               <div className="flex items-center space-x-3 mb-4">
-                <Shield className="w-8 h-8 text-purple-500" />
+                <Clock className="w-8 h-8 text-purple-500" />
                 <h3 className="text-lg font-semibold text-gray-900">In Progress</h3>
               </div>
               <div className="text-3xl font-bold text-purple-500">{pendingOrders}</div>
-              <div className="text-xs text-gray-500 mt-1">Live tracking</div>
+              <div className="text-xs text-gray-500 mt-1">Auto-refresh every 2 min</div>
             </div>
           </div>
 
+          {/* Order Status Legend - EXACT from second file */}
+          <div className="bg-white/90 backdrop-blur-lg rounded-2xl p-6 border border-gray-200 shadow-lg mb-8">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Delivery Steps</h2>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {Object.entries(orderStatuses)
+                .sort(([,a], [,b]) => a.priority - b.priority)
+                .map(([status, info]) => (
+                  <div key={status} className={`flex items-center space-x-2 p-3 rounded-lg ${info.bgColor}`}>
+                    <info.icon className="w-4 h-4" />
+                    <div>
+                      <div className="text-sm font-medium">{info.label}</div>
+                      <div className="text-xs opacity-75">Priority {info.priority}</div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+            <div className="mt-3 text-xs text-gray-500">
+              Orders are automatically sorted by priority. Pending orders appear first, delivered orders appear last.
+            </div>
+          </div>
+
+          {/* Loading state - EXACT from second file */}
           {loading && (
             <div className="text-center py-8">
-              <div className="w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-700">Loading orders from Expo CCI Database...</p>
+              <RefreshCw className="w-8 h-8 text-teal-600 animate-spin mx-auto mb-4" />
+              <p className="text-gray-700">Synchronizing with Expo CCI Database...</p>
             </div>
           )}
 
+          {/* Recent Notifications - EXACT from second file */}
           {notifications.length > 0 && (
             <div className="bg-white/90 backdrop-blur-lg rounded-2xl p-6 border border-gray-200 shadow-lg mb-8">
               <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
-                <Sparkles className="w-6 h-6 text-teal-600" />
+                <Zap className="w-6 h-6 text-teal-600" />
                 <span>Live Updates</span>
               </h2>
               <div className="space-y-3">
@@ -485,6 +568,7 @@ function App() {
             </div>
           )}
 
+          {/* Orders Grid - EXACT from second file */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {orders.map((order) => {
               const statusInfo = orderStatuses[order.status] || orderStatuses['in-process'];
@@ -492,20 +576,29 @@ function App() {
               
               return (
                 <div key={order.id} className="bg-white/90 backdrop-blur-lg rounded-2xl p-6 border border-gray-200 hover:border-gray-300 transition-all duration-300 shadow-lg">
-                  
+                  {/* Order Header */}
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
                       <StatusIcon className="w-6 h-6 text-gray-700" />
                       <span className="text-gray-900 font-bold">{order.id}</span>
                     </div>
-                    <span className="text-xs bg-teal-100 text-teal-700 px-2 py-1 rounded-full">
-                      Expo CCI
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                        Priority {statusInfo.priority}
+                      </span>
+                      {order.expo_processed && (
+                        <span className="text-xs bg-teal-100 text-teal-700 px-2 py-1 rounded-full">
+                          Expo CCI
+                        </span>
+                      )}
+                    </div>
                   </div>
 
+                  {/* Order Info */}
                   <h3 className="text-xl font-bold text-gray-900 mb-2">{order.item}</h3>
                   <p className="text-gray-600 text-sm mb-4">{order.description}</p>
 
+                  {/* Order Details */}
                   <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
                     <div>
                       <p className="text-gray-500">Order Date</p>
@@ -525,15 +618,18 @@ function App() {
                     </div>
                   </div>
 
+                  {/* Progress Bar */}
                   <div className="mb-4">
                     {renderProgressBar(order.status)}
                   </div>
 
+                  {/* Status Badge - Original colors preserved */}
                   <div className={`inline-flex items-center space-x-2 px-3 py-2 rounded-full ${statusInfo.bgColor}`}>
                     <StatusIcon className="w-4 h-4" />
                     <span className="text-sm font-medium">{statusInfo.label}</span>
                   </div>
 
+                  {/* Comments */}
                   {order.comments && (
                     <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
                       <p className="text-gray-500 text-xs mb-1">Comments</p>
@@ -541,6 +637,7 @@ function App() {
                     </div>
                   )}
 
+                  {/* Expo CCI Footer */}
                   <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
                     <ExpoLogo size="small" />
                     <span className="text-xs text-gray-400">Managed by Expo Convention Contractors</span>
@@ -550,6 +647,7 @@ function App() {
             })}
           </div>
 
+          {/* No orders message - EXACT from second file */}
           {!loading && orders.length === 0 && (
             <div className="text-center py-12">
               <div className="mb-4">
@@ -561,6 +659,7 @@ function App() {
             </div>
           )}
 
+          {/* Footer - EXACT from second file */}
           <div className="mt-12 text-center bg-white/90 backdrop-blur-lg rounded-2xl p-6 border border-gray-200 shadow-lg">
             <div className="flex items-center justify-center mb-3">
               <ExpoLogo size="large" />
