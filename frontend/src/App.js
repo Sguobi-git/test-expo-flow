@@ -11,6 +11,7 @@ function App() {
   const [introProgress, setIntroProgress] = useState(0);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [abacusStatus, setAbacusStatus] = useState(null);
+  const [exhibitorName, setExhibitorName] = useState('');
 
   useEffect(() => {
     if (stage === 'intro') {
@@ -111,6 +112,15 @@ function App() {
       setLastUpdated(new Date(data.last_updated));
       generateNotifications(sortedOrders);
       
+      // Set exhibitor name from API response
+      if (data.exhibitor_name) {
+        setExhibitorName(data.exhibitor_name);
+      } else if (sortedOrders.length > 0 && sortedOrders[0].exhibitor_name) {
+        setExhibitorName(sortedOrders[0].exhibitor_name);
+      } else {
+        setExhibitorName(`Booth ${boothNum} Exhibitor`);
+      }
+      
     } catch (error) {
       console.error('Error fetching orders:', error);
       
@@ -120,6 +130,7 @@ function App() {
           item: 'Round Table 30" high',
           description: 'Professional exhibition furniture',
           booth_number: boothNum,
+          exhibitor_name: `Booth ${boothNum} Exhibitor`,
           color: 'White',
           quantity: 2,
           status: 'delivered',
@@ -133,6 +144,7 @@ function App() {
           item: 'White Side Chair',
           description: 'Professional seating solution',
           booth_number: boothNum,
+          exhibitor_name: `Booth ${boothNum} Exhibitor`,
           color: 'White',
           quantity: 4,
           status: 'out-for-delivery',
@@ -147,6 +159,7 @@ function App() {
       setOrders(sortedFallbackOrders);
       setLastUpdated(new Date());
       generateNotifications(sortedFallbackOrders);
+      setExhibitorName(fallbackOrders[0].exhibitor_name);
     } finally {
       setLoading(false);
     }
@@ -454,9 +467,9 @@ function App() {
                   </div>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-xl md:text-3xl font-bold text-gray-900">Booth {boothNumber}</h1>
+                  <h1 className="text-xl md:text-3xl font-bold text-gray-900 truncate">{exhibitorName}</h1>
                   <p className="text-sm md:text-base text-gray-600">
-                    <span className="text-teal-600">Live Order Tracking</span>
+                    <span className="text-teal-600">Booth {boothNumber}</span>
                   </p>
                   <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 md:mt-2">
                     <span className="text-xs md:text-sm text-teal-600 flex items-center space-x-1">
@@ -654,7 +667,7 @@ function App() {
                 <ExpoLogo size="large" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No Orders Found</h3>
-              <p className="text-gray-600">No orders found for Booth {boothNumber} in our system.</p>
+              <p className="text-gray-600">No orders found for {exhibitorName} in our system.</p>
               <p className="text-gray-500 text-sm mt-2">Managed by Expo Convention Contractors</p>
             </div>
           )}
