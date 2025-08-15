@@ -15,7 +15,7 @@ except ImportError:
     print("⚠️ Google Sheets integration not available")
 
 # Initialize Flask app with static folder for React build
-app = Flask(__name__, static_folder='build', static_url_path='')
+app = Flask(__name__, static_folder='frontend/build', static_url_path='')
 CORS(app)  # Enable CORS for React app
 
 # Configure logging
@@ -185,22 +185,22 @@ def load_orders_from_sheets(force_refresh=False):
 def serve_react_app():
     """Serve the React app"""
     try:
-        return send_file('build/index.html')
+        return send_file('frontend/build/index.html')
     except FileNotFoundError:
-        return "Frontend not built. Please run 'npm run build'.", 404
+        return "Frontend not built. Please run 'npm run build' in frontend directory.", 404
 
 @app.route('/<path:path>')
 def serve_static_files(path):
     """Serve static files or React app for client-side routing"""
     try:
         # Try to serve static file first
-        return send_from_directory('build', path)
+        return send_from_directory('frontend/build', path)
     except FileNotFoundError:
         # If file not found, serve React app (for client-side routing)
         try:
-            return send_file('build/index.html')
+            return send_file('frontend/build/index.html')
         except FileNotFoundError:
-            return "Frontend not built. Please run 'npm run build'.", 404
+            return "Frontend not built. Please run 'npm run build' in frontend directory.", 404
 
 # API ROUTES
 @app.route('/api/health', methods=['GET'])
