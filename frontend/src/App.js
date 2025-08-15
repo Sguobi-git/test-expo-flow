@@ -13,6 +13,49 @@ function App() {
   const [abacusStatus, setAbacusStatus] = useState(null);
   const [exhibitorName, setExhibitorName] = useState('');
 
+  // EXACT Professional icon generator from previous app
+  const generateExhibitorIcon = (exhibitorName, boothNumber) => {
+    // Extract booth section (letter) and number
+    const boothMatch = boothNumber.match(/([A-Z]+)[-]?(\d+)/);
+    const section = boothMatch ? boothMatch[1] : 'A';
+    const number = boothMatch ? parseInt(boothMatch[2]) : 100;
+    
+    // Generate professional colors based on section - using only professional colors
+    const sectionColors = {
+      'A': { bg: 'from-slate-600 to-slate-700', text: 'text-slate-100', accent: 'border-slate-300' },
+      'B': { bg: 'from-gray-600 to-gray-700', text: 'text-gray-100', accent: 'border-gray-300' },
+      'C': { bg: 'from-zinc-600 to-zinc-700', text: 'text-zinc-100', accent: 'border-zinc-300' },
+      'D': { bg: 'from-stone-600 to-stone-700', text: 'text-stone-100', accent: 'border-stone-300' },
+      'E': { bg: 'from-neutral-600 to-neutral-700', text: 'text-neutral-100', accent: 'border-neutral-300' },
+      'F': { bg: 'from-slate-700 to-slate-800', text: 'text-slate-100', accent: 'border-slate-400' },
+      'G': { bg: 'from-gray-700 to-gray-800', text: 'text-gray-100', accent: 'border-gray-400' },
+      'H': { bg: 'from-zinc-700 to-zinc-800', text: 'text-zinc-100', accent: 'border-zinc-400' },
+      'I': { bg: 'from-slate-500 to-slate-600', text: 'text-slate-100', accent: 'border-slate-300' },
+      'J': { bg: 'from-gray-500 to-gray-600', text: 'text-gray-100', accent: 'border-gray-300' },
+    };
+    
+    const colorScheme = sectionColors[section] || sectionColors['A'];
+    
+    // Generate initials from company name (first letter of each word, max 2)
+    const words = exhibitorName.split(' ').filter(word => word.length > 2); // Filter out small words like "Inc", "LLC"
+    let initials = '';
+    
+    if (words.length >= 2) {
+      initials = words[0][0] + words[1][0];
+    } else if (words.length === 1) {
+      initials = words[0].substring(0, 2);
+    } else {
+      initials = exhibitorName.substring(0, 2);
+    }
+    
+    return {
+      initials: initials.toUpperCase(),
+      colorScheme,
+      section,
+      number: boothNumber
+    };
+  };
+
   useEffect(() => {
     if (stage === 'intro') {
       const timer1 = setTimeout(() => setIntroProgress(1), 300);
@@ -452,6 +495,9 @@ function App() {
     const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
     const pendingOrders = orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled').length;
 
+    // Generate icon data for the exhibitor
+    const iconData = exhibitorName ? generateExhibitorIcon(exhibitorName, boothNumber) : null;
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white p-6">
         <div className="max-w-7xl mx-auto">
@@ -462,9 +508,17 @@ function App() {
               <div className="flex items-center space-x-3 md:space-x-6">
                 <div className="flex items-center space-x-3 md:space-x-4">
                   <ExpoLogo size="small" />
-                  <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-teal-600 to-teal-700 flex items-center justify-center shadow-lg border border-gray-300">
-                    <Building2 className="w-6 h-6 md:w-8 md:h-8 text-white" />
-                  </div>
+                  {iconData ? (
+                    <div className={`w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br ${iconData.colorScheme.bg} flex items-center justify-center shadow-lg border border-gray-300`}>
+                      <span className={`text-sm md:text-lg font-bold ${iconData.colorScheme.text}`}>
+                        {iconData.initials}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-teal-600 to-teal-700 flex items-center justify-center shadow-lg border border-gray-300">
+                      <Building2 className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                    </div>
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <h1 className="text-xl md:text-3xl font-bold text-gray-900 truncate">{exhibitorName}</h1>
