@@ -2,28 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRight, Sparkles, Building2, Package, CheckCircle, Shield } from 'lucide-react';
 
 function App() {
-  const [stage, setStage] = useState('intro'); // 'intro', 'welcome', 'options', 'orders'
+  const [stage, setStage] = useState('intro');
   const [boothNumber, setBoothNumber] = useState('');
   const [isAnimating, setIsAnimating] = useState(true);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [lastUpdated, setLastUpdated] = useState(null);
   const [introProgress, setIntroProgress] = useState(0);
 
-  // Intro animation sequence - Apple/Google style
   useEffect(() => {
     if (stage === 'intro') {
-      // Phase 1: Logo appears (0-1s)
       const timer1 = setTimeout(() => setIntroProgress(1), 300);
-      
-      // Phase 2: Logo scales and glows (1-2s)
       const timer2 = setTimeout(() => setIntroProgress(2), 1200);
-      
-      // Phase 3: ExpoFlow text appears (2-3s)
       const timer3 = setTimeout(() => setIntroProgress(3), 2200);
-      
-      // Phase 4: Transition to main app (3-4.5s)
       const timer4 = setTimeout(() => {
         setIntroProgress(4);
         setTimeout(() => setStage('welcome'), 1000);
@@ -38,7 +29,6 @@ function App() {
     }
   }, [stage]);
 
-  // Welcome page animation sequence
   useEffect(() => {
     if (stage === 'welcome') {
       const timer = setTimeout(() => {
@@ -48,7 +38,6 @@ function App() {
     }
   }, [stage]);
 
-  // Add order statuses and API integration
   const orderStatuses = {
     'delivered': { 
       label: 'Delivered', 
@@ -94,26 +83,23 @@ function App() {
 
   const API_BASE = 'https://v3-exhibitor-live-update.onrender.com/api';
 
-  // Fetch orders by booth number
   const fetchOrdersByBooth = async (boothNum) => {
     setLoading(true);
     try {
-      console.log(`🔍 Fetching orders for booth: ${boothNum}`);
+      console.log('Fetching orders for booth:', boothNum);
       
       const response = await fetch(`${API_BASE}/orders/booth/${encodeURIComponent(boothNum)}`);
       if (!response.ok) throw new Error('Failed to fetch orders');
       
       const data = await response.json();
-      console.log('📊 Orders Response:', data);
+      console.log('Orders Response:', data);
       
       setOrders(data.orders || []);
-      setLastUpdated(new Date());
       generateNotifications(data.orders || []);
       
     } catch (error) {
       console.error('Error fetching orders:', error);
       
-      // Fallback orders for demo
       const fallbackOrders = [
         {
           id: `ORD-${boothNum}-001`,
@@ -142,7 +128,6 @@ function App() {
       ];
       
       setOrders(fallbackOrders);
-      setLastUpdated(new Date());
       generateNotifications(fallbackOrders);
     } finally {
       setLoading(false);
@@ -219,21 +204,16 @@ function App() {
     fetchOrdersByBooth(boothNumber);
   };
 
-  // Pure Welcome Animation - Apple Style Minimalism
   if (stage === 'intro') {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center overflow-hidden">
-        
         <div className="relative text-center">
-          
-          {/* Pure "Welcome" Text with Letter-by-Letter Animation */}
           <div className={`transition-all duration-1000 ease-out ${
             introProgress >= 1 ? 'opacity-100' : 'opacity-0'
           } ${
             introProgress >= 4 ? 'opacity-0 translate-y-8 scale-95' : 'translate-y-0 scale-100'
           }`}>
             <div className="relative">
-              {/* Individual letters of "Welcome" */}
               <div className="flex justify-center">
                 {['W', 'e', 'l', 'c', 'o', 'm', 'e'].map((letter, index) => (
                   <span
@@ -256,38 +236,14 @@ function App() {
               </div>
             </div>
           </div>
-
         </div>
-
-        {/* Custom animations for Apple-like smoothness */}
-        <style jsx>{`
-          @keyframes letterFloat {
-            from {
-              opacity: 0;
-              transform: translateY(40px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-          
-          @supports (-webkit-backdrop-filter: blur(10px)) {
-            .letter-smooth {
-              -webkit-font-smoothing: antialiased;
-              -moz-osx-font-smoothing: grayscale;
-            }
-          }
-        `}</style>
       </div>
     );
   }
 
-  // ExpoFlow Main Page with Booth Input
   if (stage === 'welcome') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
-        {/* Subtle background pattern */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-teal-100/40 rounded-full blur-3xl"></div>
           <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gray-100/60 rounded-full blur-3xl"></div>
@@ -297,12 +253,10 @@ function App() {
         <div className="relative min-h-screen flex items-center justify-center p-6">
           <div className="text-center max-w-md mx-auto w-full">
             
-            {/* Logo with smooth entrance */}
             <div className={`mb-8 transform transition-all duration-1000 ${isAnimating ? 'translate-y-10 opacity-0' : 'translate-y-0 opacity-100'}`}>
               <ExpoLogo size="large" />
             </div>
 
-            {/* Main Title */}
             <div className={`space-y-6 mb-12 transform transition-all duration-1000 delay-300 ${isAnimating ? 'translate-y-10 opacity-0' : 'translate-y-0 opacity-100'}`}>
               <h1 className="text-5xl md:text-6xl font-black text-gray-900 mb-4">
                 ExpoFlow
@@ -316,11 +270,9 @@ function App() {
               </div>
             </div>
 
-            {/* Booth Number Input Card */}
             <div className={`transform transition-all duration-1000 delay-600 ${isAnimating ? 'translate-y-10 opacity-0' : 'translate-y-0 opacity-100'}`}>
               <div className="bg-white/90 backdrop-blur-lg rounded-3xl p-8 border border-gray-200 shadow-lg">
                 
-                {/* Input Section */}
                 <div className="space-y-6">
                   <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -358,7 +310,6 @@ function App() {
               </div>
             </div>
 
-            {/* System Status */}
             <div className={`mt-8 transform transition-all duration-1000 delay-900 ${isAnimating ? 'translate-y-10 opacity-0' : 'translate-y-0 opacity-100'}`}>
               <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
                 <Shield className="w-4 h-4 text-green-500" />
@@ -372,11 +323,9 @@ function App() {
     );
   }
 
-  // Options Selection Screen - Full Page Cards
   if (stage === 'options') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
-        {/* Subtle background pattern */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-teal-100/40 rounded-full blur-3xl"></div>
           <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gray-100/60 rounded-full blur-3xl"></div>
@@ -386,7 +335,6 @@ function App() {
         <div className="relative min-h-screen flex items-center justify-center p-6">
           <div className="w-full max-w-5xl mx-auto">
             
-            {/* Header */}
             <div className="text-center mb-16">
               <div className="mb-6">
                 <ExpoLogo size="large" />
@@ -396,10 +344,8 @@ function App() {
               </h2>
             </div>
 
-            {/* Large Option Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
               
-              {/* Orders Card */}
               <div className="group cursor-pointer transform transition-all duration-300 hover:scale-105" onClick={handleOrdersClick}>
                 <div className="bg-white/90 backdrop-blur-lg rounded-3xl p-12 border border-gray-200 hover:border-teal-400 shadow-lg hover:shadow-xl transition-all duration-300 h-80 flex flex-col justify-center">
                   <div className="text-center">
@@ -415,7 +361,6 @@ function App() {
                 </div>
               </div>
 
-              {/* Checklist Card */}
               <div className="group cursor-pointer transform transition-all duration-300 hover:scale-105">
                 <div className="bg-white/90 backdrop-blur-lg rounded-3xl p-12 border border-gray-200 hover:border-teal-400 shadow-lg hover:shadow-xl transition-all duration-300 h-80 flex flex-col justify-center">
                   <div className="text-center">
@@ -432,7 +377,6 @@ function App() {
               </div>
             </div>
 
-            {/* Back Button */}
             <div className="text-center">
               <button
                 onClick={() => setStage('welcome')}
@@ -447,7 +391,6 @@ function App() {
     );
   }
 
-  // Orders Page - Integrated from your existing app
   if (stage === 'orders') {
     const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
     const pendingOrders = orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled').length;
@@ -456,11 +399,9 @@ function App() {
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white p-6">
         <div className="max-w-7xl mx-auto">
           
-          {/* Header */}
           <div className="bg-white/90 backdrop-blur-lg rounded-3xl p-4 md:p-6 border border-gray-200 shadow-xl mb-8">
             <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
               
-              {/* Left side - Booth info */}
               <div className="flex items-center space-x-3 md:space-x-6">
                 <div className="flex items-center space-x-3 md:space-x-4">
                   <ExpoLogo size="small" />
@@ -482,7 +423,6 @@ function App() {
                 </div>
               </div>
               
-              {/* Right side - Back button */}
               <div className="flex items-center justify-end space-x-2 md:space-x-4 flex-shrink-0">
                 <button 
                   onClick={() => setStage('options')}
@@ -494,7 +434,6 @@ function App() {
             </div>
           </div>
 
-          {/* Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white/90 backdrop-blur-lg rounded-2xl p-6 border border-gray-200 shadow-lg">
               <div className="flex items-center space-x-3 mb-4">
@@ -522,7 +461,6 @@ function App() {
             </div>
           </div>
 
-          {/* Loading state */}
           {loading && (
             <div className="text-center py-8">
               <div className="w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -530,7 +468,6 @@ function App() {
             </div>
           )}
 
-          {/* Recent Notifications */}
           {notifications.length > 0 && (
             <div className="bg-white/90 backdrop-blur-lg rounded-2xl p-6 border border-gray-200 shadow-lg mb-8">
               <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
@@ -548,7 +485,6 @@ function App() {
             </div>
           )}
 
-          {/* Orders Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {orders.map((order) => {
               const statusInfo = orderStatuses[order.status] || orderStatuses['in-process'];
@@ -557,7 +493,19 @@ function App() {
               return (
                 <div key={order.id} className="bg-white/90 backdrop-blur-lg rounded-2xl p-6 border border-gray-200 hover:border-gray-300 transition-all duration-300 shadow-lg">
                   
-                  {/* Order Details */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <StatusIcon className="w-6 h-6 text-gray-700" />
+                      <span className="text-gray-900 font-bold">{order.id}</span>
+                    </div>
+                    <span className="text-xs bg-teal-100 text-teal-700 px-2 py-1 rounded-full">
+                      Expo CCI
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">{order.item}</h3>
+                  <p className="text-gray-600 text-sm mb-4">{order.description}</p>
+
                   <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
                     <div>
                       <p className="text-gray-500">Order Date</p>
@@ -577,18 +525,15 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Progress Bar */}
                   <div className="mb-4">
                     {renderProgressBar(order.status)}
                   </div>
 
-                  {/* Status Badge */}
                   <div className={`inline-flex items-center space-x-2 px-3 py-2 rounded-full ${statusInfo.bgColor}`}>
                     <StatusIcon className="w-4 h-4" />
                     <span className="text-sm font-medium">{statusInfo.label}</span>
                   </div>
 
-                  {/* Comments */}
                   {order.comments && (
                     <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
                       <p className="text-gray-500 text-xs mb-1">Comments</p>
@@ -596,7 +541,6 @@ function App() {
                     </div>
                   )}
 
-                  {/* Expo CCI Footer */}
                   <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
                     <ExpoLogo size="small" />
                     <span className="text-xs text-gray-400">Managed by Expo Convention Contractors</span>
@@ -606,7 +550,6 @@ function App() {
             })}
           </div>
 
-          {/* No orders message */}
           {!loading && orders.length === 0 && (
             <div className="text-center py-12">
               <div className="mb-4">
@@ -618,7 +561,6 @@ function App() {
             </div>
           )}
 
-          {/* Footer */}
           <div className="mt-12 text-center bg-white/90 backdrop-blur-lg rounded-2xl p-6 border border-gray-200 shadow-lg">
             <div className="flex items-center justify-center mb-3">
               <ExpoLogo size="large" />
@@ -639,19 +581,4 @@ function App() {
   }
 }
 
-export default App; Header */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <StatusIcon className="w-6 h-6 text-gray-700" />
-                      <span className="text-gray-900 font-bold">{order.id}</span>
-                    </div>
-                    <span className="text-xs bg-teal-100 text-teal-700 px-2 py-1 rounded-full">
-                      Expo CCI
-                    </span>
-                  </div>
-
-                  {/* Order Info */}
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{order.item}</h3>
-                  <p className="text-gray-600 text-sm mb-4">{order.description}</p>
-
-                  {/* Order
+export default App;
