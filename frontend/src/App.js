@@ -384,7 +384,7 @@ function App() {
                         value={boothNumber}
                         onChange={(e) => setBoothNumber(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        placeholder="e.g., A-123, B-456"
+                        placeholder=""
                         className="block w-full pl-10 pr-4 py-4 border border-gray-300 rounded-2xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-lg font-medium"
                         autoFocus
                       />
