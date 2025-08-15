@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory, send_file
 from flask_cors import CORS
 from datetime import datetime, timedelta
 import time
@@ -6,11 +6,16 @@ import logging
 import os
 import json
 
-# Import the Abacus AI integration
-from abacus_integration import AbacusManager
+# Import the Google Sheets manager (from your existing code)
+try:
+    from sheets_integration import GoogleSheetsManager
+    SHEETS_AVAILABLE = True
+except ImportError:
+    SHEETS_AVAILABLE = False
+    print("⚠️ Google Sheets integration not available")
 
-# Initialize Flask app
-app = Flask(__name__)
+# Initialize Flask app with static folder for React build
+app = Flask(__name__, static_folder='build', static_url_path='')
 CORS(app)  # Enable CORS for React app
 
 # Configure logging
@@ -38,56 +43,44 @@ def set_cache(key, data):
     CACHE[key] = (data, datetime.now())
     logger.info(f"Cached data for {key}")
 
-# Initialize Abacus AI Manager
-abacus_manager = AbacusManager()
-
-# Your Abacus AI configuration from the codes you provided
-ABACUS_API_KEY = "s2_440d8b6da4094a9badee296fd7e6500d"  # Replace with your real API key
-FEATURE_GROUP_ID = "4d868f4c"
-DATASET_ID = "3dee61c66"
-PROJECT_ID = "16b4367d2c"
-
-def load_orders_from_abacus(force_refresh=False):
-    """Load orders from Abacus AI with smart caching"""
-    cache_key = "all_orders"
-    
-    # Check cache first (unless force refresh)
-    if not force_refresh:
-        cached_data = get_from_cache(cache_key, allow_cache=True)
-        if cached_data:
-            return cached_data
-    
+# Initialize Google Sheets Manager
+def get_credentials():
+    """Get Google credentials from environment variable or file"""
     try:
-        logger.info("🤖 Fetching data from Abacus AI...")
-        
-        # Use your Abacus AI manager to get data
-        orders_data = abacus_manager.get_orders_data(
-            api_key=ABACUS_API_KEY,
-            feature_group_id=FEATURE_GROUP_ID,
-            dataset_id=DATASET_ID,
-            project_id=PROJECT_ID
-        )
-        
-        if orders_data and len(orders_data) > 0:
-            logger.info(f"✅ Loaded {len(orders_data)} orders from Abacus AI")
-            set_cache(cache_key, orders_data)
-            if force_refresh:
-                logger.info("🔄 FORCE REFRESH: Fresh data loaded from Abacus AI")
-            return orders_data
+        # Try to get credentials from environment variable first
+        credentials_json = os.environ.get('GOOGLE_CREDENTIALS_JSON')
+        if credentials_json:
+            # Parse the JSON string and create a temporary file
+            credentials_dict = json.loads(credentials_json)
+            
+            # Create temporary credentials file
+            with open('/tmp/credentials.json', 'w') as f:
+                json.dump(credentials_dict, f)
+            return '/tmp/credentials.json'
         else:
-            raise Exception("No data returned from Abacus AI")
-        
+            # Fallback to local file (for development)
+            return 'credentials.json'
     except Exception as e:
-        logger.error(f"Error loading orders from Abacus AI: {e}")
-        logger.info("Falling back to mock data")
-        
-        # Fallback mock data
-        mock_data = get_mock_orders()
-        set_cache(cache_key, mock_data)
-        return mock_data
+        logger.error(f"Error setting up credentials: {e}")
+        return None
 
+# Initialize Google Sheets Manager
+if SHEETS_AVAILABLE:
+    credentials_path = get_credentials()
+    if credentials_path:
+        gs_manager = GoogleSheetsManager(credentials_path)
+    else:
+        gs_manager = None
+        logger.warning("No valid credentials found - using mock data only")
+else:
+    gs_manager = None
+    logger.warning("Google Sheets integration not available - using mock data only")
+
+# Your Google Sheet ID
+SHEET_ID = "1zaRPHP3k-K1L0z3Bi_Wk--S1Xe2erOAAVYp78h18UUI"
+
+# Mock data for testing
 def get_mock_orders():
-    """Mock data for testing when Abacus AI is unavailable"""
     return [
         {
             'id': 'ORD-2025-001',
@@ -143,6 +136,72 @@ def get_mock_orders():
         }
     ]
 
+def load_orders_from_sheets(force_refresh=False):
+    """Load orders from Google Sheets with smart caching"""
+    cache_key = "all_orders"
+    
+    # Check cache first (unless force refresh)
+    if not force_refresh:
+        cached_data = get_from_cache(cache_key, allow_cache=True)
+        if cached_data:
+            return cached_data
+    
+    try:
+        if not gs_manager:
+            logger.warning("No Google Sheets manager available, using mock data")
+            mock_data = get_mock_orders()
+            set_cache(cache_key, mock_data)
+            return mock_data
+            
+        # Get all orders from Google Sheets
+        all_orders = []
+        data = gs_manager.get_data(SHEET_ID, "Orders")
+        
+        if data and len(data) > 0:
+            if isinstance(data, list):
+                all_orders = gs_manager.parse_orders_data(data)
+                logger.info(f"Loaded {len(all_orders)} orders from Google Sheets")
+            
+            if all_orders:
+                set_cache(cache_key, all_orders)
+                if force_refresh:
+                    logger.info("🔄 FORCE REFRESH: Fresh data loaded from Google Sheets")
+                return all_orders
+        
+        logger.warning("No data found in Google Sheets, using mock data")
+        mock_data = get_mock_orders()
+        set_cache(cache_key, mock_data)
+        return mock_data
+        
+    except Exception as e:
+        logger.error(f"Error loading orders from sheets: {e}")
+        logger.info("Falling back to mock data")
+        mock_data = get_mock_orders()
+        set_cache(cache_key, mock_data)
+        return mock_data
+
+# REACT APP SERVING ROUTES
+@app.route('/')
+def serve_react_app():
+    """Serve the React app"""
+    try:
+        return send_file('build/index.html')
+    except FileNotFoundError:
+        return "Frontend not built. Please run 'npm run build'.", 404
+
+@app.route('/<path:path>')
+def serve_static_files(path):
+    """Serve static files or React app for client-side routing"""
+    try:
+        # Try to serve static file first
+        return send_from_directory('build', path)
+    except FileNotFoundError:
+        # If file not found, serve React app (for client-side routing)
+        try:
+            return send_file('build/index.html')
+        except FileNotFoundError:
+            return "Frontend not built. Please run 'npm run build'.", 404
+
 # API ROUTES
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -150,7 +209,7 @@ def health_check():
     return jsonify({
         'status': 'healthy', 
         'timestamp': datetime.now().isoformat(),
-        'abacus_ai_connected': abacus_manager is not None,
+        'google_sheets_connected': gs_manager is not None,
         'cache_size': len(CACHE)
     })
 
@@ -160,18 +219,11 @@ def abacus_status():
     return jsonify({
         'platform': 'Expo Convention Contractors',
         'status': 'connected',
-        'database': 'Abacus AI Integration',
+        'database': 'Google Sheets Integration',
         'last_sync': datetime.now().isoformat(),
         'version': '3.0.0',
         'cache_enabled': True
     })
-
-@app.route('/api/orders', methods=['GET'])
-def get_all_orders():
-    """Get all orders with smart caching"""
-    force_refresh = request.args.get(FORCE_REFRESH_PARAM, 'false').lower() == 'true'
-    orders = load_orders_from_abacus(force_refresh=force_refresh)
-    return jsonify(orders)
 
 @app.route('/api/orders/booth/<booth_number>', methods=['GET'])
 def get_orders_by_booth(booth_number):
@@ -187,7 +239,7 @@ def get_orders_by_booth(booth_number):
     
     try:
         # Get all orders and filter by booth number
-        all_orders = load_orders_from_abacus(force_refresh=force_refresh)
+        all_orders = load_orders_from_sheets(force_refresh=force_refresh)
         booth_orders = [
             order for order in all_orders 
             if order['booth_number'].lower() == booth_number.lower()
@@ -222,115 +274,12 @@ def get_orders_by_booth(booth_number):
             'error': str(e)
         }), 500
 
-@app.route('/api/orders/exhibitor/<exhibitor_name>', methods=['GET'])
-def get_orders_by_exhibitor(exhibitor_name):
-    """Get orders for a specific exhibitor with smart caching"""
-    cache_key = f"exhibitor_{exhibitor_name}"
+@app.route('/api/orders', methods=['GET'])
+def get_all_orders():
+    """Get all orders with smart caching"""
     force_refresh = request.args.get(FORCE_REFRESH_PARAM, 'false').lower() == 'true'
-    
-    # Try cache first (unless force refresh)
-    if not force_refresh:
-        cached_data = get_from_cache(cache_key, allow_cache=True)
-        if cached_data:
-            return jsonify(cached_data)
-    
-    try:
-        # Get all orders and filter
-        all_orders = load_orders_from_abacus(force_refresh=force_refresh)
-        exhibitor_orders = [
-            order for order in all_orders 
-            if order['exhibitor_name'].lower() == exhibitor_name.lower()
-        ]
-        
-        delivered_count = len([o for o in exhibitor_orders if o['status'] == 'delivered'])
-        
-        result = {
-            'exhibitor': exhibitor_name,
-            'orders': exhibitor_orders,
-            'total_orders': len(exhibitor_orders),
-            'delivered_orders': delivered_count,
-            'last_updated': datetime.now().isoformat(),
-            'force_refreshed': force_refresh
-        }
-        
-        set_cache(cache_key, result)
-        
-        if force_refresh:
-            logger.info(f"🔄 MANUAL REFRESH: Fresh data for {exhibitor_name}")
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        logger.error(f"Error getting orders for exhibitor {exhibitor_name}: {e}")
-        return jsonify({
-            'exhibitor': exhibitor_name,
-            'orders': [],
-            'total_orders': 0,
-            'delivered_orders': 0,
-            'last_updated': datetime.now().isoformat(),
-            'error': str(e)
-        }), 500
-
-@app.route('/api/exhibitors', methods=['GET'])
-def get_exhibitors():
-    """Get list of all exhibitors with smart caching"""
-    cache_key = "exhibitors"
-    force_refresh = request.args.get(FORCE_REFRESH_PARAM, 'false').lower() == 'true'
-    
-    # Try cache first (unless force refresh)
-    if not force_refresh:
-        cached_data = get_from_cache(cache_key, allow_cache=True)
-        if cached_data:
-            return jsonify(cached_data)
-    
-    try:
-        exhibitors = []
-        
-        # Get exhibitors from orders data
-        orders = load_orders_from_abacus(force_refresh=force_refresh)
-        exhibitors_dict = {}
-        
-        for order in orders:
-            exhibitor_name = order['exhibitor_name']
-            booth_number = order['booth_number']
-            
-            if exhibitor_name not in exhibitors_dict:
-                exhibitors_dict[exhibitor_name] = {
-                    'name': exhibitor_name,
-                    'booth': booth_number,
-                    'total_orders': 0,
-                    'delivered_orders': 0
-                }
-            
-            exhibitors_dict[exhibitor_name]['total_orders'] += 1
-            if order['status'] == 'delivered':
-                exhibitors_dict[exhibitor_name]['delivered_orders'] += 1
-        
-        exhibitors = list(exhibitors_dict.values())
-        set_cache(cache_key, exhibitors)
-        return jsonify(exhibitors)
-        
-    except Exception as e:
-        logger.error(f"Error getting exhibitors: {e}")
-        return jsonify([]), 500
-
-@app.route('/api/stats', methods=['GET'])
-def get_stats():
-    """Get overall statistics"""
-    force_refresh = request.args.get(FORCE_REFRESH_PARAM, 'false').lower() == 'true'
-    orders = load_orders_from_abacus(force_refresh=force_refresh)
-    
-    stats = {
-        'total_orders': len(orders),
-        'delivered': len([o for o in orders if o['status'] == 'delivered']),
-        'in_process': len([o for o in orders if o['status'] == 'in-process']),
-        'in_route': len([o for o in orders if o['status'] == 'in-route']),
-        'out_for_delivery': len([o for o in orders if o['status'] == 'out-for-delivery']),
-        'cancelled': len([o for o in orders if o['status'] == 'cancelled']),
-        'last_updated': datetime.now().isoformat()
-    }
-    
-    return jsonify(stats)
+    orders = load_orders_from_sheets(force_refresh=force_refresh)
+    return jsonify(orders)
 
 @app.route('/api/clear-cache', methods=['POST'])
 def clear_cache():
