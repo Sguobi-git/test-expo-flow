@@ -527,7 +527,9 @@ function App() {
                   <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 md:mt-2">
                     <span className="text-xs md:text-sm text-teal-600 flex items-center space-x-1">
                       <Award className="w-3 h-3 md:w-4 md:h-4" />
+                      <span>Expo Convention Contractors</span>
                     </span>
+                    <span className="text-xs md:text-sm text-gray-500">Live Order Tracking</span>
                   </div>
                 </div>
               </div>
